@@ -190,7 +190,8 @@ class Raw(object):
 
 
         Returns:
-            list of list: 4 colour data of the image in unit16. (width x height)
+            list of list: 4 colour data of the image in unit16. 
+                          (width x height)
             str : colour channel description (ie. RGGB, RGBG)
         """
         # Unpack the data, so that rawdata is populated

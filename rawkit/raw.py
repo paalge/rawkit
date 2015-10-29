@@ -7,6 +7,7 @@ import os
 import random
 import string
 import tempfile
+import numpy as np
 
 from collections import namedtuple
 from libraw.bindings import LibRaw
@@ -174,6 +175,40 @@ class Raw(object):
 
         self.libraw.libraw_dcraw_thumb_writer(
             self.data, filename.encode('ascii'))
+
+    def get_4_col_raw(self):
+        """
+        Read the 4 colour raw data
+
+        Returns:
+            numpy array: 4 colour data of the image.
+            str : colour channel description (ie. RGGB, RGBG)
+        """
+        # Unpack the data, so that rawdata is populated
+        self.unpack()
+
+        rawdata = self.data.contents.rawdata
+        iheight = rawdata.sizes.iheight
+        iwidth = rawdata.sizes.iwidth
+        print(rawdata.sizes.iheight)
+        print(rawdata.sizes.iwidth)
+        data_pointer = ctypes.cast(
+            rawdata.color4_image.contents,
+            ctypes.POINTER(ctypes.c_ushort)
+        )
+
+#         data = np.fromiter()
+#         data = bytearray(data_pointer.contents)
+#         data = np.asarray(data_pointer.contents, dtype=np.uint16)
+#         print(data.shape)
+#         print(rawdata.sizes.iheight)
+#         print(rawdata.sizes.iwidth)
+#         data = data.reshape([4, rawdata.sizes.iwidth, rawdata.sizes.iheight])
+#         data = bytearray(data_pointer.contents)
+#         self.libraw.libraw_dcraw_clear_mem(processed_image)
+        data = np.fromiter(
+            data_pointer, dtype=np.uint16, count=iheight * iwidth)
+        return data, self.data.contents.idata.cdesc
 
     def to_buffer(self):
         """

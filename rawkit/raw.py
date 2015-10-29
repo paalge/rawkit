@@ -180,7 +180,7 @@ class Raw(object):
         Read the 4 colour raw data
         The returned numpy array is (given colour RGGB)
         ---------
-        R B R B ... 
+        R B R B ...
         G B G B ...
         R B R B ....
         . . . . .
@@ -190,7 +190,7 @@ class Raw(object):
 
 
         Returns:
-            list of list: 4 colour data of the image in unit16. 
+            list of list: 4 colour data of the image in unit16.
                           (width x height)
             str : colour channel description (ie. RGGB, RGBG)
         """

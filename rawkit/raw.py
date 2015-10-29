@@ -190,7 +190,7 @@ class Raw(object):
 
 
         Returns:
-            array: 4 colour data of the image in unit16. (width x height)
+            list of list: 4 colour data of the image in unit16. (width x height)
             str : colour channel description (ie. RGGB, RGBG)
         """
         # Unpack the data, so that rawdata is populated
@@ -202,7 +202,7 @@ class Raw(object):
 
         try:
             rawdata.color4_image.contents
-        except:
+        except ValueError:
             return None
 
         # Get image size

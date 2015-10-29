@@ -179,35 +179,47 @@ class Raw(object):
     def get_4_col_raw(self):
         """
         Read the 4 colour raw data
+        The returned numpy array is (given colour RGGB)
+        ---------
+        R B R B ... 
+        G B G B ...
+        R B R B ....
+        . . . . .
+        . . . .  .
+        . . . .   .
+        --------
+
 
         Returns:
-            numpy array: 4 colour data of the image.
+            numpy array: 4 colour data of the image in unit16. (width x height)
             str : colour channel description (ie. RGGB, RGBG)
         """
         # Unpack the data, so that rawdata is populated
         self.unpack()
-
         rawdata = self.data.contents.rawdata
+
+        # Raise error if 4 color image isn't there, which will happen for some
+        # cameras
+        raise_if_error(rawdata.color4_image.contents == ctypes.c_voidp)
+
+        # Get image size
         iheight = rawdata.sizes.iheight
         iwidth = rawdata.sizes.iwidth
-        print(rawdata.sizes.iheight)
-        print(rawdata.sizes.iwidth)
+
+        # Make pointer to data
         data_pointer = ctypes.cast(
             rawdata.color4_image.contents,
             ctypes.POINTER(ctypes.c_ushort)
         )
 
-#         data = np.fromiter()
-#         data = bytearray(data_pointer.contents)
-#         data = np.asarray(data_pointer.contents, dtype=np.uint16)
-#         print(data.shape)
-#         print(rawdata.sizes.iheight)
-#         print(rawdata.sizes.iwidth)
-#         data = data.reshape([4, rawdata.sizes.iwidth, rawdata.sizes.iheight])
-#         data = bytearray(data_pointer.contents)
-#         self.libraw.libraw_dcraw_clear_mem(processed_image)
+        # make 1D numpy array
         data = np.fromiter(
             data_pointer, dtype=np.uint16, count=iheight * iwidth)
+
+        # Reshape into correct shape
+        data = data.reshape([iwidth, iheight])
+
+        # Return data and colour descriptor
         return data, self.data.contents.idata.cdesc
 
     def to_buffer(self):

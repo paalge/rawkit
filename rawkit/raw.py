@@ -7,7 +7,6 @@ import os
 import random
 import string
 import tempfile
-import numpy as np
 
 from collections import namedtuple
 from libraw.bindings import LibRaw
@@ -191,7 +190,7 @@ class Raw(object):
 
 
         Returns:
-            numpy array: 4 colour data of the image in unit16. (width x height)
+            array: 4 colour data of the image in unit16. (width x height)
             str : colour channel description (ie. RGGB, RGBG)
         """
         # Unpack the data, so that rawdata is populated
@@ -200,6 +199,7 @@ class Raw(object):
 
         # Raise error if 4 color image isn't there, which will happen for some
         # cameras
+
         raise_if_error(rawdata.color4_image.contents == ctypes.c_voidp)
 
         # Get image size
@@ -207,17 +207,18 @@ class Raw(object):
         iwidth = rawdata.sizes.iwidth
 
         # Make pointer to data
+
         data_pointer = ctypes.cast(
             rawdata.color4_image.contents,
             ctypes.POINTER(ctypes.c_ushort)
         )
 
-        # make 1D numpy array
-        data = np.fromiter(
-            data_pointer, dtype=np.uint16, count=iheight * iwidth)
+        # make 2D list
+        data = [[0 for i in range(iheight)] for j in range(iwidth)]
 
-        # Reshape into correct shape
-        data = data.reshape([iwidth, iheight])
+        for ii in range(iheight):
+            for jj in range(iwidth):
+                data[jj][ii] = data_pointer[ii * iwidth + jj]
 
         # Return data and colour descriptor
         return data, self.data.contents.idata.cdesc

@@ -197,10 +197,13 @@ class Raw(object):
         self.unpack()
         rawdata = self.data.contents.rawdata
 
-        # Raise error if 4 color image isn't there, which will happen for some
+        # Return None if the image isn't 4 colour, which will happen for some
         # cameras
 
-        raise_if_error(rawdata.color4_image.contents == ctypes.c_voidp)
+        try:
+            rawdata.color4_image.contents
+        except:
+            return None
 
         # Get image size
         iheight = rawdata.sizes.iheight

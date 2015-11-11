@@ -7,6 +7,7 @@ import os
 import random
 import string
 import tempfile
+import warnings
 
 from collections import namedtuple
 from libraw.bindings import LibRaw
@@ -177,12 +178,18 @@ class Raw(object):
 
     def get_4_col_raw(self):
         """
-        Read the 4 colour raw data
-        The returned numpy array is (given colour RGGB)
+        EXPERIMENTAL
+
+        Read the 4 colour raw data, this does NOT include the data outside of
+        the frame (calibration data, etc)
+
+        Returns None if the input is not a 4 colour image
+
+        The returned array is (given colour RGGB)
         ---------
         R B R B ...
         G B G B ...
-        R B R B ....
+        R B R B ...
         . . . . .
         . . . .  .
         . . . .   .
@@ -191,12 +198,13 @@ class Raw(object):
 
         Returns:
             list of list: 4 colour data of the image in unit16.
-                          (width x height)
+                          (height x width)
             str : colour channel description (ie. RGGB, RGBG)
         """
         # Unpack the data, so that rawdata is populated
         self.unpack()
         rawdata = self.data.contents.rawdata
+        sizes = self.data.contents.sizes
 
         # Return None if the image isn't 4 colour, which will happen for some
         # cameras
@@ -206,9 +214,29 @@ class Raw(object):
         except ValueError:
             return None
 
-        # Get image size
-        iheight = rawdata.sizes.iheight
-        iwidth = rawdata.sizes.iwidth
+        if sizes.pixel_aspect != 1:
+            warnings.warn(
+                "The pixel aspect is not unity, it is:" + sizes.pixel_aspect)
+
+        if sizes.flip != 0:
+            raise NotImplemented("Does not support rotations in the image")
+
+        # Get raw image size
+        raw_width = sizes.raw_width
+        # raw_height = sizes.raw_height
+
+        # Get margins
+        left_margin = sizes.left_margin
+        top_margin = sizes.top_margin
+
+        # Get row pitch (returned in bytes, therefore we divide it in two
+        # since we are using 16 bit (2 bytes) per pixel
+
+        pitch = int(sizes.raw_pitch / 2)
+
+        # Get frame size
+        iheight = sizes.height
+        iwidth = sizes.width
 
         # Make pointer to data
 
@@ -217,15 +245,107 @@ class Raw(object):
             ctypes.POINTER(ctypes.c_ushort)
         )
 
-        # make 2D list
-        data = [[0 for i in range(iheight)] for j in range(iwidth)]
+        # Compute first
+        first = raw_width * top_margin + left_margin
 
+        # make 2D list
+        data = [[0 for i in range(iwidth)] for j in range(iheight)]
         for ii in range(iheight):
             for jj in range(iwidth):
-                data[jj][ii] = data_pointer[ii * iwidth + jj]
+                data[ii][jj] = data_pointer[first + ii * pitch + jj]
 
         # Return data and colour descriptor
         return data, self.data.contents.idata.cdesc
+
+    def get_3_col_raw(self):
+        """
+        EXPERIMENTAL
+
+        Read the 3 colour raw data, this does NOT include the data outside of
+        the frame (calibration data, etc)
+
+        Returns None if the input is not a 3 colour image
+        NB: most raw data is 4 colour, use get_4_col_raw for them
+
+        The returned array is (given colour RGBG)
+        ---------
+        R G B 0 R ...
+        R G B 0 R ...
+        R G B 0 R ...
+        . . . . .
+        . . . .  .
+        . . . .   .
+        --------
+
+        Returns:
+            list of list: 3 colour data of the image in unit16.
+                          ( height x 4 width)
+            str : colour channel description (ie. RGBG)
+
+
+        """
+        # Unpack the data, so that rawdata is populated
+        self.unpack()
+        rawdata = self.data.contents.rawdata
+        sizes = self.data.contents.sizes
+
+        # Return None if the image isn't 3 colour, which will happen for some
+        # cameras and for most raw images
+
+        try:
+            rawdata.color3_image.contents
+        except ValueError:
+            return None
+
+        if sizes.pixel_aspect != 1:
+            warnings.warn(
+                "The pixel aspect is not unity, it is:" + sizes.pixel_aspect)
+
+        if sizes.flip != 0:
+            raise NotImplemented("Does not support rotations in the image")
+
+        # Get raw image size
+        raw_width = sizes.raw_width
+        # raw_height = sizes.raw_height
+
+        # Get margins
+        left_margin = sizes.left_margin
+        top_margin = sizes.top_margin
+
+        # Get row pitch (returned in bytes, therefore we divide it in two
+        # since we are using 16 bit (2 bytes) per pixel
+
+        pitch = int(sizes.raw_pitch / 2)
+
+        # Get frame height size
+        iheight = int(sizes.height)
+
+        # Get colour cdesc
+        cdesc = self.data.contents.idata.cdesc
+        num_col = len(cdesc)
+        # The width needs to be num_col (4) times this due to the way the image
+        # is saved
+        iwidth = sizes.width * num_col
+
+        # Make pointer to data
+
+        data_pointer = ctypes.cast(
+            rawdata.color3_image.contents,
+            ctypes.POINTER(ctypes.c_ushort)
+        )
+
+        # Compute first
+        first = raw_width * top_margin + left_margin
+
+        # make 2D list
+        data = [[0 for i in range(iwidth)] for j in range(iheight)]
+
+        for ii in range(iheight):
+            for jj in range(iwidth):
+                data[ii][jj] = data_pointer[first + ii * pitch + jj]
+
+        # Return data and colour descriptor
+        return data, cdesc
 
     def to_buffer(self):
         """

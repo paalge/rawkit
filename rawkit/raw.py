@@ -197,7 +197,7 @@ class Raw(object):
 
 
         Returns:
-            list of list: 4 colour data of the image in unit16.
+            list of lists: 4 colour data of the image in unit16.
                           (height x width)
             str : colour channel description (ie. RGGB, RGBG)
         """
@@ -221,41 +221,21 @@ class Raw(object):
         if sizes.flip != 0:
             raise NotImplemented("Does not support rotations in the image")
 
-        # Get raw image size
-        raw_width = sizes.raw_width
-        # raw_height = sizes.raw_height
-
-        # Get margins
-        left_margin = sizes.left_margin
-        top_margin = sizes.top_margin
-
-        # Get row pitch (returned in bytes, therefore we divide it in two
-        # since we are using 16 bit (2 bytes) per pixel
-
-        pitch = int(sizes.raw_pitch / 2)
-
-        # Get frame size
-        iheight = sizes.height
-        iwidth = sizes.width
+        # Get colour cdesc
+        cdesc = self.data.contents.idata.cdesc
 
         # Make pointer to data
-
         data_pointer = ctypes.cast(
             rawdata.color4_image.contents,
             ctypes.POINTER(ctypes.c_ushort)
         )
 
-        # Compute first
-        first = raw_width * top_margin + left_margin
+        iwidth = sizes.width
 
-        # make 2D list
-        data = [[0 for i in range(iwidth)] for j in range(iheight)]
-        for ii in range(iheight):
-            for jj in range(iwidth):
-                data[ii][jj] = data_pointer[first + ii * pitch + jj]
-
+        # Get the data
+        data = self.__get_raw_data(sizes, data_pointer, iwidth)
         # Return data and colour descriptor
-        return data, self.data.contents.idata.cdesc
+        return data, cdesc
 
     def get_3_col_raw(self):
         """
@@ -278,7 +258,7 @@ class Raw(object):
         --------
 
         Returns:
-            list of list: 3 colour data of the image in unit16.
+            list of lists: 3 colour data of the image in unit16.
                           ( height x 4 width)
             str : colour channel description (ie. RGBG)
 
@@ -304,6 +284,42 @@ class Raw(object):
         if sizes.flip != 0:
             raise NotImplemented("Does not support rotations in the image")
 
+        # Make pointer to data
+        data_pointer = ctypes.cast(
+            rawdata.color3_image.contents,
+            ctypes.POINTER(ctypes.c_ushort)
+        )
+        # Get colour cdesc
+        cdesc = self.data.contents.idata.cdesc
+        num_col = len(cdesc)
+        # The width needs to be num_col (4) times this due to the way the image
+        # is saved
+        iwidth = sizes.width * num_col
+
+        # Get the data
+        data = self.__get_raw_data(sizes, data_pointer, iwidth)
+
+        # Return data and colour descriptor
+        return data, cdesc
+
+    def __get_raw_data(self, sizes, data_pointer, iwidth):
+        """
+        Internal method for getting raw data. Should not be called outside
+
+        Parameters
+        ----------
+            sizes : Sizes variable
+
+            data_pointer : c-pointer to the data
+
+            iwidth : image width
+
+
+        Returns
+        ----------
+            data : 2D matrix of the raw data
+        """
+
         # Get raw image size
         raw_width = sizes.raw_width
         # raw_height = sizes.raw_height
@@ -320,20 +336,6 @@ class Raw(object):
         # Get frame height size
         iheight = int(sizes.height)
 
-        # Get colour cdesc
-        cdesc = self.data.contents.idata.cdesc
-        num_col = len(cdesc)
-        # The width needs to be num_col (4) times this due to the way the image
-        # is saved
-        iwidth = sizes.width * num_col
-
-        # Make pointer to data
-
-        data_pointer = ctypes.cast(
-            rawdata.color3_image.contents,
-            ctypes.POINTER(ctypes.c_ushort)
-        )
-
         # Compute first
         first = raw_width * top_margin + left_margin
 
@@ -345,7 +347,7 @@ class Raw(object):
                 data[ii][jj] = data_pointer[first + ii * pitch + jj]
 
         # Return data and colour descriptor
-        return data, cdesc
+        return data
 
     def to_buffer(self):
         """
